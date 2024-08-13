@@ -6,7 +6,10 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from rdkit import Chem
 
 
-def substructure_search(structures_smiles: list[str], substructure_smiles: str) -> list[str]: 
+def substructure_search(
+        structures_smiles: list[str],
+        substructure_smiles: str,
+) -> list[str]:
     search_result = []
     substructure_mol = Chem.MolFromSmiles(substructure_smiles)
 
@@ -18,8 +21,10 @@ def substructure_search(structures_smiles: list[str], substructure_smiles: str) 
 
     return search_result
 
+
 def load_molecules_db_from_file(file):
-    buffer = StringIO(file.read().decode('utf-8'))  # read file as bytes and decode bytes into text stream
+    # read file as bytes and decode bytes into text stream
+    buffer = StringIO(file.read().decode('utf-8'))
     reader = csv.DictReader(buffer)
 
     molecules_db = {}
@@ -30,7 +35,7 @@ def load_molecules_db_from_file(file):
             'molecule_formula': row['FORMULA'],
             'molecule_weight': int(row['WEIGHT']),
         }
-        molecules_db[row['INDEX_ID']] = molecule    
+        molecules_db[row['INDEX_ID']] = molecule
 
     return molecules_db
 
@@ -38,10 +43,11 @@ def load_molecules_db_from_file(file):
 app = FastAPI()
 
 molecules_db: dict[str, dict[str, Any]] = {
-    '1': {'smiles': 'CCO', 'molecule_formula': 'C2H5OH', 'molecule_weight': 25},
-    '2': {'smiles': 'c1ccccc1', 'molecule_formula': 'C6H6', 'molecule_weight': 78},
-    '3': {'smiles': 'CC(=O)Oc1ccccc1C(=O)O', 'molecule_formula': 'C9H8O4', 'molecule_weight': 180},
+    '1': {'smiles': 'CCO', 'molecule_formula': 'C2H5OH', 'molecule_weight': 25},  # noqa: E501
+    '2': {'smiles': 'c1ccccc1', 'molecule_formula': 'C6H6', 'molecule_weight': 78},  # noqa: E501
+    '3': {'smiles': 'CC(=O)Oc1ccccc1C(=O)O', 'molecule_formula': 'C9H8O4', 'molecule_weight': 180},  # noqa: E501
 }
+
 
 # Add molecule (smiles) and its identifier.
 @app.post('/add', status_code=201)
@@ -88,15 +94,20 @@ def retrieve_all_molecules():
 def substructure_search_molecules(substructure_smiles: str):
     smiles_from_db = []
     smiles_x_db_index = {}
-    
+
     # Collect all smiles from DB and create smiles-index mapping.
     for index, molecule in molecules_db.items():
         smiles_from_db.append(molecule['smiles'])
-        smiles_x_db_index[molecule['smiles']] = index    
-    
+        smiles_x_db_index[molecule['smiles']] = index
+
     found_structures = substructure_search(smiles_from_db, substructure_smiles)
-    smiles_indexes = [smiles_x_db_index[smiles] for smiles in found_structures]  # Get indexes for interested structures. 
-    result = {smiles_index: molecules_db[smiles_index] for smiles_index in smiles_indexes}
+    # Get indexes for interested structures.
+    smiles_indexes = [smiles_x_db_index[smiles] for smiles in found_structures]
+    result = {
+        smiles_index: molecules_db[smiles_index]
+        for smiles_index
+        in smiles_indexes
+    }
 
     return result
 
