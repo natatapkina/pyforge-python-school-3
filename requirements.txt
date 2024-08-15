@@ -1,2 +1,2 @@
 rdkit
-fastapi
+fastapi[standard]
