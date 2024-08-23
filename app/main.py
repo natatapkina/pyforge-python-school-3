@@ -1,8 +1,8 @@
 import csv
-from io import StringIO
 import os
-from typing import Any
+from io import StringIO
 from fastapi import FastAPI, HTTPException, UploadFile
+from typing import Any
 from rdkit import Chem
 
 
