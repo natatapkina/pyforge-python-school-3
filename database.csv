@@ -1,7 +1,7 @@
-INDEX_ID,SMILES,FORMULA,WEIGHT
-1,CCO,C2H5OH,25
-2,c1ccccc1,C6H6,78
-3,CC(=O)Oc1ccccc1C(=O)O,C9H8O4,180
-4,c1cc2ccccc2cc1,C10H8,128
-5,CC(=O)C,C3H6O,58
-6,c1c(N(=O)=O)cccc1,C6H5NO2,123
+NAME,SMILES,FORMULA,WEIGHT
+ethanol,CCO,C2H5OH,46.07
+benzene,c1ccccc1,C6H6,78.11
+aspirin,CC(=O)Oc1ccccc1C(=O)O,C9H8O4,180.16
+naphthalene,c1cc2ccccc2cc1,C10H8,128.17
+acetone,CC(=O)C,C3H6O,58.08
+nitrobenzene,c1c(N(=O)=O)cccc1,C6H5NO2,123.11
