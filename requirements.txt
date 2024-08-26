@@ -1,2 +1,6 @@
-rdkit
+alembic
 fastapi[standard]
+psycopg[binary]
+pydantic
+rdkit
+sqlalchemy
