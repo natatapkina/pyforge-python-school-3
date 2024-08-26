@@ -1,6 +1,5 @@
 from database import Base
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class Molecule(Base):

@@ -1,5 +1,7 @@
 from typing import Any
+
 from sqlalchemy import delete, select, update
+
 from database import Session
 from models import Molecule
 
@@ -9,22 +11,16 @@ class MoleculeDAO:
 
     # Add molecule (smiles) and its identifier.
     @classmethod
-    def create(cls, molecule: dict):
+    def create(cls, molecule: dict) -> int:
         with Session() as session:
             new_molecule = cls.model(**molecule)
             session.add(new_molecule)
             session.commit()
-            return {
-                'id': new_molecule.id,
-                'name': new_molecule.name,
-                'smiles': new_molecule.smiles,
-                'molecule_formula': new_molecule.molecule_formula,
-                'molecule_weight': new_molecule.molecule_weight,
-            }
+            return new_molecule.id
 
     # Get molecule by identifier.
     @classmethod
-    def get_by_id(cls, molecule_id: int):
+    def get_by_id(cls, molecule_id: int) -> Molecule | None:
         with Session() as session:
             query = select(cls.model).filter_by(id=molecule_id)
             result = session.execute(query)
@@ -32,7 +28,7 @@ class MoleculeDAO:
 
     # Updating a molecule by identifier.
     @classmethod
-    def update(cls, molecule_id: int, updated_molecule: dict[str, Any]):
+    def update(cls, molecule_id: int, updated_molecule: dict[str, Any]) -> int:
         with Session() as session:
             query = (
                 update(cls.model)
@@ -45,7 +41,7 @@ class MoleculeDAO:
 
     # Delete a molecule by identifier.
     @classmethod
-    def delete(cls, molecule_id: int):
+    def delete(cls, molecule_id: int) -> int:
         with Session() as session:
             query = delete(cls.model).where(cls.model.id == molecule_id)
             result = session.execute(query)
@@ -54,7 +50,7 @@ class MoleculeDAO:
 
     # List all molecules.
     @classmethod
-    def get_all(cls):
+    def get_all(cls) -> list[Molecule]:
         with Session() as session:
             query = select(cls.model)
             result = session.execute(query)
@@ -62,7 +58,7 @@ class MoleculeDAO:
 
     # Substructure search for all added molecules.
     @classmethod
-    def get_by_ids(cls, molecule_ids: list[int]):
+    def get_by_ids(cls, molecule_ids: list[int]) -> list[Molecule]:
         with Session() as session:
             query = select(cls.model).where(cls.model.id.in_(molecule_ids))
             result = session.execute(query)
@@ -70,7 +66,7 @@ class MoleculeDAO:
 
     # Create multiple molecules.
     @classmethod
-    def bulk_create(cls, molecules: list[Molecule]):
+    def bulk_create(cls, molecules: list[Molecule]) -> None:
         with Session() as session:
             session.add_all(molecules)
             session.commit()

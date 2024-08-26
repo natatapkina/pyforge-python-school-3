@@ -1,12 +1,13 @@
 import csv
 import os
 from io import StringIO
+
 from fastapi import FastAPI, HTTPException, UploadFile
-from typing import Any
 from rdkit import Chem
 
-from models import Molecule
 from dao import MoleculeDAO
+from models import Molecule
+from schemas import MoleculeCreate, MoleculeOut, MoleculeUpdate
 
 
 def substructure_search(
@@ -25,7 +26,7 @@ def substructure_search(
     return search_result
 
 
-def load_molecules_from_file(file):
+def load_molecules_from_file(file) -> list[Molecule]:
     # read file as bytes and decode bytes into text stream
     buffer = StringIO(file.read().decode('utf-8'))
     reader = csv.DictReader(buffer)
@@ -50,33 +51,60 @@ app = FastAPI()
 
 # Add molecule (smiles) and its identifier.
 @app.post('/add', status_code=201)
-def add_molecule(molecule: dict):
-    return MoleculeDAO.create(molecule)
+def add_molecule(molecule: MoleculeCreate) -> MoleculeOut:
+    molecule_id = MoleculeDAO.create(molecule.model_dump())
+    molecule = MoleculeDAO.get_by_id(molecule_id)
+    return MoleculeOut(
+        id=molecule.id,
+        name=molecule.name,
+        smiles=molecule.smiles,
+        molecule_formula=molecule.molecule_formula,
+        molecule_weight=molecule.molecule_weight,
+    )
 
 
 # Get molecule by identifier.
 @app.get('/molecules/{molecule_id}')
-def retrieve_molecule(molecule_id: int):
+def retrieve_molecule(molecule_id: int) -> MoleculeOut:
     molecule = MoleculeDAO.get_by_id(molecule_id)
     if molecule is not None:
-        return molecule
+        return MoleculeOut(
+            id=molecule.id,
+            name=molecule.name,
+            smiles=molecule.smiles,
+            molecule_formula=molecule.molecule_formula,
+            molecule_weight=molecule.molecule_weight,
+        )
     else:
         raise HTTPException(status_code=404, detail='Molecule is not found.')
 
 
 # Updating a molecule by identifier.
 @app.put('/molecules/{molecule_id}')
-def update_molecule(molecule_id: int, updated_molecule: dict[str, Any]):
-    n_updated = MoleculeDAO.update(molecule_id, updated_molecule)
+def update_molecule(
+        molecule_id: int,
+        updated_molecule: MoleculeUpdate,
+) -> MoleculeOut:
+    n_updated = MoleculeDAO.update(
+        molecule_id,
+        updated_molecule.model_dump(exclude_none=True),
+    )
     if n_updated != 0:
-        return MoleculeDAO.get_by_id(molecule_id)
+        molecule = MoleculeDAO.get_by_id(molecule_id)
+        return MoleculeOut(
+            id=molecule.id,
+            name=molecule.name,
+            smiles=molecule.smiles,
+            molecule_formula=molecule.molecule_formula,
+            molecule_weight=molecule.molecule_weight,
+        )
     else:
         raise HTTPException(status_code=404, detail='Molecule is not found.')
 
 
 # Delete a molecule by identifier.
 @app.delete('/molecules/{molecule_id}')
-def delete_molecule(molecule_id: int):
+def delete_molecule(molecule_id: int) -> None:
     n_deleted = MoleculeDAO.delete(molecule_id)
     if n_deleted == 0:
         raise HTTPException(status_code=404, detail='Molecule is not found.')
@@ -84,13 +112,28 @@ def delete_molecule(molecule_id: int):
 
 # List all molecules.
 @app.get('/molecules/')
-def retrieve_all_molecules():
-    return MoleculeDAO.get_all()
+def retrieve_all_molecules() -> list[MoleculeOut]:
+    all_molecules = []
+    molecules = MoleculeDAO.get_all()
+
+    for molecule in molecules:
+        mol = MoleculeOut(
+            id=molecule.id,
+            name=molecule.name,
+            smiles=molecule.smiles,
+            molecule_formula=molecule.molecule_formula,
+            molecule_weight=molecule.molecule_weight,
+        )
+        all_molecules.append(mol)
+
+    return all_molecules
 
 
 # Substructure search for all added molecules.
 @app.get('/substructure_search/{substructure_smiles}')
-def substructure_search_molecules(substructure_smiles: str):
+def substructure_search_molecules(
+        substructure_smiles: str,
+) -> list[MoleculeOut]:
     smiles_from_db = []
     smiles_x_db_id = {}
 
@@ -104,15 +147,41 @@ def substructure_search_molecules(substructure_smiles: str):
     found_structures = substructure_search(smiles_from_db, substructure_smiles)
     # Get indexes for interested structures.
     ids = [smiles_x_db_id[smiles] for smiles in found_structures]
-    return MoleculeDAO.get_by_ids(ids)
+    molecules = MoleculeDAO.get_by_ids(ids)
+    all_molecules = []
+
+    for molecule in molecules:
+        mol = MoleculeOut(
+            id=molecule.id,
+            name=molecule.name,
+            smiles=molecule.smiles,
+            molecule_formula=molecule.molecule_formula,
+            molecule_weight=molecule.molecule_weight,
+        )
+        all_molecules.append(mol)
+
+    return all_molecules
 
 
 # [Optional] Upload file with molecules (the choice of format is yours).
 @app.post('/create_db/')
-def upload_molecules_from_file(file: UploadFile):
-    molecules = load_molecules_from_file(file.file)
-    MoleculeDAO.bulk_create(molecules)
-    return MoleculeDAO.get_all()
+def upload_molecules_from_file(file: UploadFile) -> list[MoleculeOut]:
+    load_molecules = load_molecules_from_file(file.file)
+    MoleculeDAO.bulk_create(load_molecules)
+    molecules = MoleculeDAO.get_all()
+    all_molecules = []
+
+    for molecule in molecules:
+        mol = MoleculeOut(
+            id=molecule.id,
+            name=molecule.name,
+            smiles=molecule.smiles,
+            molecule_formula=molecule.molecule_formula,
+            molecule_weight=molecule.molecule_weight,
+        )
+        all_molecules.append(mol)
+
+    return all_molecules
 
 
 # [Optional] Load balancer. Add method to check balancing.
