@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from rdkit import Chem
 
 from dao import MoleculeDAO
+from log import logger
 from models import Molecule
 from schemas import MoleculeCreate, MoleculeOut, MoleculeUpdate
 
@@ -52,6 +53,7 @@ app = FastAPI()
 # Add molecule (smiles) and its identifier.
 @app.post('/add', status_code=201)
 def add_molecule(molecule: MoleculeCreate) -> MoleculeOut:
+    logger.info('A new request is received to create a new molecule.')
     molecule_id = MoleculeDAO.create(molecule.model_dump())
     molecule = MoleculeDAO.get_by_id(molecule_id)
     return MoleculeOut(
@@ -66,6 +68,7 @@ def add_molecule(molecule: MoleculeCreate) -> MoleculeOut:
 # Get molecule by identifier.
 @app.get('/molecules/{molecule_id}')
 def retrieve_molecule(molecule_id: int) -> MoleculeOut:
+    logger.info(f'A new request is received to get a molecule with ID {molecule_id}.')
     molecule = MoleculeDAO.get_by_id(molecule_id)
     if molecule is not None:
         return MoleculeOut(
@@ -76,6 +79,7 @@ def retrieve_molecule(molecule_id: int) -> MoleculeOut:
             molecule_weight=molecule.molecule_weight,
         )
     else:
+        logger.info(f'Molecule with ID {molecule_id} is not found.')
         raise HTTPException(status_code=404, detail='Molecule is not found.')
 
 
@@ -85,6 +89,7 @@ def update_molecule(
         molecule_id: int,
         updated_molecule: MoleculeUpdate,
 ) -> MoleculeOut:
+    logger.info(f'A new request is received to update a molecule with ID {molecule_id}.')
     n_updated = MoleculeDAO.update(
         molecule_id,
         updated_molecule.model_dump(exclude_none=True),
@@ -99,20 +104,24 @@ def update_molecule(
             molecule_weight=molecule.molecule_weight,
         )
     else:
+        logger.info(f'Molecule with ID {molecule_id} is not found.')
         raise HTTPException(status_code=404, detail='Molecule is not found.')
 
 
 # Delete a molecule by identifier.
 @app.delete('/molecules/{molecule_id}')
 def delete_molecule(molecule_id: int) -> None:
+    logger.info(f'A new request is received to remove a molecule with ID {molecule_id}.')
     n_deleted = MoleculeDAO.delete(molecule_id)
     if n_deleted == 0:
+        logger.info(f'Molecule with ID {molecule_id} is not found.')
         raise HTTPException(status_code=404, detail='Molecule is not found.')
 
 
 # List all molecules.
 @app.get('/molecules/')
 def retrieve_all_molecules() -> list[MoleculeOut]:
+    logger.info('A new request is received to get all molecules list.')
     all_molecules = []
     molecules = MoleculeDAO.get_all()
 
@@ -134,6 +143,7 @@ def retrieve_all_molecules() -> list[MoleculeOut]:
 def substructure_search_molecules(
         substructure_smiles: str,
 ) -> list[MoleculeOut]:
+    logger.info(f'Seatching for substructure {substructure_smiles}.')
     smiles_from_db = []
     smiles_x_db_id = {}
 
@@ -141,8 +151,9 @@ def substructure_search_molecules(
     molecules = MoleculeDAO.get_all()
 
     for molecule in molecules:
-        smiles_x_db_id[molecule.smiles] = molecule.id
-        smiles_from_db.append(molecule.smiles)
+        if molecule.smiles not in smiles_from_db:
+            smiles_x_db_id[molecule.smiles] = molecule.id
+            smiles_from_db.append(molecule.smiles)
 
     found_structures = substructure_search(smiles_from_db, substructure_smiles)
     # Get indexes for interested structures.
@@ -166,6 +177,7 @@ def substructure_search_molecules(
 # [Optional] Upload file with molecules (the choice of format is yours).
 @app.post('/create_db/')
 def upload_molecules_from_file(file: UploadFile) -> list[MoleculeOut]:
+    logger.info('A new request is received to upload file with molecules.')
     load_molecules = load_molecules_from_file(file.file)
     MoleculeDAO.bulk_create(load_molecules)
     molecules = MoleculeDAO.get_all()
