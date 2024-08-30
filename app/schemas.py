@@ -21,3 +21,8 @@ class MoleculeOut(BaseModel):
     smiles: str
     molecule_formula: str
     molecule_weight: float
+
+
+class MoleculesResponse(BaseModel):
+    cursor: str | None = None
+    molecules: list[MoleculeOut]
