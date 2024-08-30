@@ -1,14 +1,21 @@
 import csv
 import os
 from io import StringIO
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from rdkit import Chem
+import uuid
 
 from dao import MoleculeDAO
 from log import logger
 from models import Molecule
-from schemas import MoleculeCreate, MoleculeOut, MoleculeUpdate
+from schemas import (
+    MoleculeCreate,
+    MoleculeOut,
+    MoleculeUpdate,
+    MoleculesResponse,
+)
 
 
 def substructure_search(
@@ -68,7 +75,10 @@ def add_molecule(molecule: MoleculeCreate) -> MoleculeOut:
 # Get molecule by identifier.
 @app.get('/molecules/{molecule_id}')
 def retrieve_molecule(molecule_id: int) -> MoleculeOut:
-    logger.info(f'A new request is received to get a molecule with ID {molecule_id}.')
+    logger.info(
+        f'A new request is received to get '
+        f'a molecule with ID {molecule_id}.',
+    )
     molecule = MoleculeDAO.get_by_id(molecule_id)
     if molecule is not None:
         return MoleculeOut(
@@ -89,7 +99,10 @@ def update_molecule(
         molecule_id: int,
         updated_molecule: MoleculeUpdate,
 ) -> MoleculeOut:
-    logger.info(f'A new request is received to update a molecule with ID {molecule_id}.')
+    logger.info(
+        f'A new request is received to update '
+        f'a molecule with ID {molecule_id}.',
+    )
     n_updated = MoleculeDAO.update(
         molecule_id,
         updated_molecule.model_dump(exclude_none=True),
@@ -111,31 +124,73 @@ def update_molecule(
 # Delete a molecule by identifier.
 @app.delete('/molecules/{molecule_id}')
 def delete_molecule(molecule_id: int) -> None:
-    logger.info(f'A new request is received to remove a molecule with ID {molecule_id}.')
+    logger.info(
+        f'A new request is received to remove '
+        f'a molecule with ID {molecule_id}.',
+    )
     n_deleted = MoleculeDAO.delete(molecule_id)
     if n_deleted == 0:
         logger.info(f'Molecule with ID {molecule_id} is not found.')
         raise HTTPException(status_code=404, detail='Molecule is not found.')
 
 
+# Stores cursor-molecule iterator key-value pairs.
+class IteratorContainer:
+    def __init__(self) -> None:
+        self.container = {}
+
+    def __call__(self):
+        return self.container
+
+
 # List all molecules.
 @app.get('/molecules/')
-def retrieve_all_molecules() -> list[MoleculeOut]:
+def retrieve_all_molecules(
+        iterator_container: Annotated[dict, Depends(IteratorContainer())],
+        limit: int | None = None,
+        cursor: str | None = None,
+) -> MoleculesResponse:
     logger.info('A new request is received to get all molecules list.')
-    all_molecules = []
-    molecules = MoleculeDAO.get_all()
 
-    for molecule in molecules:
-        mol = MoleculeOut(
-            id=molecule.id,
-            name=molecule.name,
-            smiles=molecule.smiles,
-            molecule_formula=molecule.molecule_formula,
-            molecule_weight=molecule.molecule_weight,
-        )
-        all_molecules.append(mol)
+    # Check if cursor exists.
+    if cursor is not None:
+        molecules_iterator = iterator_container.get(cursor)
+        if molecules_iterator is None:
+            raise HTTPException(status_code=404, detail='Cursor is not found.')
+    else:
+        molecules = MoleculeDAO.get_all()
+        all_molecules = []
 
-    return all_molecules
+        for molecule in molecules:
+            mol = MoleculeOut(
+                id=molecule.id,
+                name=molecule.name,
+                smiles=molecule.smiles,
+                molecule_formula=molecule.molecule_formula,
+                molecule_weight=molecule.molecule_weight,
+            )
+            all_molecules.append(mol)
+
+        # Create a cursor as a hexadecimal UUID string.
+        cursor = str(uuid.uuid4())
+        molecules_iterator = iter(all_molecules)
+        iterator_container[cursor] = molecules_iterator
+
+    # Check if the limit variable has a value.
+    # If no limit, then delete the cursor value and return all molecules.
+    # if the limit is specified, then return the specified number of molecules.
+    if limit is None:
+        del iterator_container[cursor]
+        return MoleculesResponse(molecules=list(molecules_iterator))
+    else:
+        limited_molecules = []
+        for i in range(limit):
+            try:
+                limited_molecules.append(next(molecules_iterator))
+            except StopIteration:
+                del iterator_container[cursor]
+                return MoleculesResponse(molecules=limited_molecules)
+        return MoleculesResponse(cursor=cursor, molecules=limited_molecules)
 
 
 # Substructure search for all added molecules.

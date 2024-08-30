@@ -23,7 +23,10 @@ class MoleculeDAO:
     # Get molecule by identifier.
     @classmethod
     def get_by_id(cls, molecule_id: int) -> Molecule | None:
-        logger.info(f'Retrieving a molecule with ID {molecule_id} from the database.')
+        logger.info(
+            f'Retrieving a molecule with ID {molecule_id} '
+            f'from the database.',
+        )
         with Session() as session:
             query = select(cls.model).filter_by(id=molecule_id)
             result = session.execute(query)
@@ -32,7 +35,10 @@ class MoleculeDAO:
     # Updating a molecule by identifier.
     @classmethod
     def update(cls, molecule_id: int, updated_molecule: dict[str, Any]) -> int:
-        logger.info(f'Updating a molecule with ID {molecule_id} to the database.')
+        logger.info(
+            f'Updating a molecule with ID {molecule_id} '
+            f'to the database.',
+        )
         with Session() as session:
             query = (
                 update(cls.model)
@@ -46,7 +52,10 @@ class MoleculeDAO:
     # Delete a molecule by identifier.
     @classmethod
     def delete(cls, molecule_id: int) -> int:
-        logger.info(f'Removing a molecule with ID {molecule_id} from the database.')
+        logger.info(
+            f'Removing a molecule with ID {molecule_id} '
+            f'from the database.',
+        )
         with Session() as session:
             query = delete(cls.model).where(cls.model.id == molecule_id)
             result = session.execute(query)
@@ -65,7 +74,10 @@ class MoleculeDAO:
     # Substructure search for all added molecules.
     @classmethod
     def get_by_ids(cls, molecule_ids: list[int]) -> list[Molecule]:
-        logger.info(f'Retrieving molecules with IDs {molecule_ids} from the database.')
+        logger.info(
+            f'Retrieving molecules with IDs {molecule_ids} '
+            f'from the database.',
+        )
         with Session() as session:
             query = select(cls.model).where(cls.model.id.in_(molecule_ids))
             result = session.execute(query)
