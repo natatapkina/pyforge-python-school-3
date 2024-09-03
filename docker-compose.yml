@@ -6,6 +6,9 @@ services:
       - ./app:/app
     environment:
       SERVER_ID: SERVER-1
+    depends_on:
+      - redis
+      - postgres
 
   web2:
     build: .
@@ -13,6 +16,9 @@ services:
       - ./app:/app
     environment:
       SERVER_ID: SERVER-2
+    depends_on:
+      - redis
+      - postgres
 
   nginx:
     image: nginx:latest
@@ -34,3 +40,8 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=user
       - POSTGRES_DB=postgres
+      
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"

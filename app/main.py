@@ -1,12 +1,14 @@
 import csv
 import os
+import uuid
 from io import StringIO
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from rdkit import Chem
-import uuid
+from redis import Redis
 
+from cache import RedisCacheBackend
 from dao import MoleculeDAO
 from log import logger
 from models import Molecule
@@ -56,6 +58,10 @@ def load_molecules_from_file(file) -> list[Molecule]:
 
 app = FastAPI()
 
+# Connect to Redis
+redis_client = Redis(host='redis')
+cache_backend = RedisCacheBackend(redis_client)
+
 
 # Add molecule (smiles) and its identifier.
 @app.post('/add', status_code=201)
@@ -74,20 +80,31 @@ def add_molecule(molecule: MoleculeCreate) -> MoleculeOut:
 
 # Get molecule by identifier.
 @app.get('/molecules/{molecule_id}')
-def retrieve_molecule(molecule_id: int) -> MoleculeOut:
+def retrieve_molecule(
+        cache_backend: Annotated[RedisCacheBackend, Depends(cache_backend)],
+        molecule_id: int,
+) -> MoleculeOut:
     logger.info(
         f'A new request is received to get '
         f'a molecule with ID {molecule_id}.',
     )
+    cache_key = f'molecule:{molecule_id}'
+    cached_result = cache_backend.get_cached_result(cache_key)
+    
+    if cached_result:
+        return MoleculeOut.model_validate(cached_result)
+    
     molecule = MoleculeDAO.get_by_id(molecule_id)
     if molecule is not None:
-        return MoleculeOut(
+        mol_out = MoleculeOut(
             id=molecule.id,
             name=molecule.name,
             smiles=molecule.smiles,
             molecule_formula=molecule.molecule_formula,
             molecule_weight=molecule.molecule_weight,
         )
+        cache_backend.set_cache(cache_key, mol_out.model_dump())
+        return mol_out
     else:
         logger.info(f'Molecule with ID {molecule_id} is not found.')
         raise HTTPException(status_code=404, detail='Molecule is not found.')
