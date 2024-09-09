@@ -4,11 +4,12 @@ import uuid
 from io import StringIO
 from typing import Annotated
 
+from celery.result import AsyncResult
 from fastapi import Depends, FastAPI, HTTPException, UploadFile
-from rdkit import Chem
 from redis import Redis
 
 from cache import RedisCacheBackend
+from celery_worker import celery
 from dao import MoleculeDAO
 from log import logger
 from models import Molecule
@@ -18,22 +19,7 @@ from schemas import (
     MoleculeUpdate,
     MoleculesResponse,
 )
-
-
-def substructure_search(
-        structures_smiles: list[str],
-        substructure_smiles: str,
-) -> list[str]:
-    search_result = []
-    substructure_mol = Chem.MolFromSmiles(substructure_smiles)
-
-    for structure_smiles in structures_smiles:
-        structure_mol = Chem.MolFromSmiles(structure_smiles)
-
-        if structure_mol.HasSubstructMatch(substructure_mol):
-            search_result.append(structure_smiles)
-
-    return search_result
+from tasks import substructure_search_task
 
 
 def load_molecules_from_file(file) -> list[Molecule]:
@@ -225,40 +211,40 @@ def retrieve_all_molecules(
         return MoleculesResponse(cursor=cursor, molecules=limited_molecules)
 
 
-# Substructure search for all added molecules.
-@app.get('/substructure_search/{substructure_smiles}')
-def substructure_search_molecules(
-        substructure_smiles: str,
-) -> list[MoleculeOut]:
-    logger.info(f'Seatching for substructure {substructure_smiles}.')
-    smiles_from_db = []
-    smiles_x_db_id = {}
+# Run the Celery task to search for substructure.
+@app.get('/substructure_search/add/{substructure_smiles}')
+def substructure_search_molecules(substructure_smiles: str):
+    task = substructure_search_task.delay(substructure_smiles)
+    return {'task_id': task.id, 'status': task.status}
 
-    # Collect all smiles from DB and create smiles-index mapping.
-    molecules = MoleculeDAO.get_all()
 
-    for molecule in molecules:
-        if molecule.smiles not in smiles_from_db:
-            smiles_x_db_id[molecule.smiles] = molecule.id
-            smiles_from_db.append(molecule.smiles)
-
-    found_structures = substructure_search(smiles_from_db, substructure_smiles)
-    # Get indexes for interested structures.
-    ids = [smiles_x_db_id[smiles] for smiles in found_structures]
-    molecules = MoleculeDAO.get_by_ids(ids)
-    all_molecules = []
-
-    for molecule in molecules:
-        mol = MoleculeOut(
-            id=molecule.id,
-            name=molecule.name,
-            smiles=molecule.smiles,
-            molecule_formula=molecule.molecule_formula,
-            molecule_weight=molecule.molecule_weight,
-        )
-        all_molecules.append(mol)
-
-    return all_molecules
+# Substructure search result.
+@app.get('/substructure_search/{task_id}')
+def substructure_search_result(task_id: str):
+    task_result = AsyncResult(task_id, app=celery)
+    if task_result.state == 'PENDING':
+        return {
+            'task_id': task_id,
+            'status': 'Task is still processing',
+        }
+    elif task_result.state == 'SUCCESS':
+        # Transform the list of dictionaries
+        # into a list of MoleculeOut objects.
+        result = [
+            MoleculeOut.model_validate(molecule)
+            for molecule
+            in task_result.result
+        ]
+        return {
+            'task_id': task_id,
+            'status': 'Task completed',
+            'result': result,
+        }
+    else:
+        return {
+            'task_id': task_id,
+            'status': task_result.state,
+        }
 
 
 # [Optional] Upload file with molecules (the choice of format is yours).
