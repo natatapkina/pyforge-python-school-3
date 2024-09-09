@@ -13,5 +13,4 @@ COPY alembic.ini .
 WORKDIR /app
 COPY /app/ .
 
-ENTRYPOINT ["python", "-m", "uvicorn"]
-CMD ["--host", "0.0.0.0", "--port", "8000", "--reload", "main:app"]
+CMD ["python", "-m", "uvicorn", "--host", "0.0.0.0", "--port", "8000", "--reload", "main:app"]
