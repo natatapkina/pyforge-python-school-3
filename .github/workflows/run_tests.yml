@@ -28,7 +28,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           envs: BRANCH_NAME
           script: |
-            rm -rf pyforge-python-school-3
+            sudo rm -rf pyforge-python-school-3
             git clone -b $BRANCH_NAME https://github.com/natatapkina/pyforge-python-school-3.git
             cd pyforge-python-school-3
             docker compose up --build -d
