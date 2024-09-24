@@ -20,12 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: appleboy/ssh-action@v1.0.3
+        env:
+          BRANCH_NAME: $GITHUB_REF_NAME
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          envs: BRANCH_NAME
           script: |
             rm -rf pyforge-python-school-3
-            git clone -b $GITHUB_REF_NAME https://github.com/natatapkina/pyforge-python-school-3.git
+            git clone -b $BRANCH_NAME https://github.com/natatapkina/pyforge-python-school-3.git
             cd pyforge-python-school-3
             docker compose up --build -d
