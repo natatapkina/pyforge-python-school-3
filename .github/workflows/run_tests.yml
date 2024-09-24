@@ -17,6 +17,7 @@ jobs:
       - run: python -m flake8 app/
 
   deploy:
+    runs-on: ubuntu-latest
     steps:
       - uses: appleboy/ssh-action@v1.0.3
         with:
