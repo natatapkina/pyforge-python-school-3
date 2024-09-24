@@ -24,4 +24,8 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          script: whoami
+          script: |
+            rm -rf pyforge-python-school-3
+            git clone -b $GITHUB_REF_NAME https://github.com/natatapkina/pyforge-python-school-3.git
+            cd pyforge-python-school-3
+            docker compose up --build -d
