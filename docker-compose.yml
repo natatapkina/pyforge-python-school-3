@@ -7,6 +7,7 @@ services:
     environment:
       SERVER_ID: SERVER-1
     depends_on:
+      - migration
       - redis
       - postgres
 
@@ -17,8 +18,18 @@ services:
     environment:
       SERVER_ID: SERVER-2
     depends_on:
+      - migration
       - redis
       - postgres
+
+  migration:
+    build: .
+    command: alembic upgrade head
+    volumes:
+      - ./app:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   nginx:
     image: nginx:latest
@@ -35,12 +46,17 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./pg_data:/var/lib/postgresql/data
+      - ~/pg_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=user
       - POSTGRES_DB=postgres
-      
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
+      interval: 1s
+      retries: 10
+      timeout: 10s
+
   redis:
     image: "redis:alpine"
     ports:
