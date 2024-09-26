@@ -6,9 +6,6 @@ COPY requirements.txt .
 # install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy alembic in root folder
-COPY alembic.ini .
-
 # copy project files
 WORKDIR /app
 COPY /app/ .
